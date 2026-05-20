@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Anillo Sensuto - BroadcastChannel</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            background: #0a0f1e;
+            color: #e0e0e0;
+            text-align: center;
+            padding: 2rem;
+        }
+        .anillos {
+            display: flex;
+            justify-content: center;
+            gap: 4rem;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+        }
+        .anillo {
+            background: #1e2a3a;
+            border-radius: 50%;
+            width: 200px;
+            height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .color {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            margin-bottom: 1rem;
+            background-color: gray;
+        }
+        .estado {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        .vibracion {
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            color: #ffaa66;
+        }
+        .sincronia {
+            background: #2e4a3e;
+            color: #c0ffc0;
+            padding: 0.5rem;
+            border-radius: 2rem;
+            font-weight: bold;
+            margin-top: 1rem;
+        }
+        button {
+            background: #2c3e66;
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            cursor: pointer;
+            margin: 0.2rem;
+        }
+        .info {
+            font-size: 0.8rem;
+            color: #aaa;
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+<body>
+<h1>💍 Anillo Sensuto — Conexión automática</h1>
+<p>Abre dos pestañas con esta misma página. Se verán automáticamente.</p>
+
+<div class="anillos">
+    <div class="anillo">
+        <div class="color" id="colorLocal"></div>
+        <div class="estado" id="estadoLocal">---</div>
+        <div class="vibracion" id="vibracionLocal"></div>
+        <button onclick="cambiarColor()">🎨 Cambiar mi color</button>
+    </div>
+
+    <div class="anillo">
+        <div class="color" id="colorRemoto"></div>
+        <div class="estado" id="estadoRemoto">---</div>
+        <div class="vibracion" id="vibracionRemoto"></div>
+        <div class="info">Otro participante</div>
+    </div>
+</div>
+
+<div class="sincronia" id="sincroniaMsg">⚪ Esperando sincronía...</div>
+
+<script>
+    const coloresMap = {
+        "verde_suave": "#6fbf6f",
+        "azul_claro": "#6fa8dc",
+        "naranja_tenue": "#e67e22"
+    };
+
+    let miColor = "azul_claro";
+    let colorRemoto = "azul_claro";
+
+    // Canal de comunicación entre pestañas
+    const channel = new BroadcastChannel('anillo_sensuto');
+
+    function actualizarInterfaz() {
+        document.getElementById("colorLocal").style.backgroundColor = coloresMap[miColor];
+        document.getElementById("estadoLocal").innerText = miColor.replace("_", " ");
+        document.getElementById("colorRemoto").style.backgroundColor = coloresMap[colorRemoto];
+        document.getElementById("estadoRemoto").innerText = colorRemoto.replace("_", " ");
+
+        const sincronia = (miColor === colorRemoto);
+        if (sincronia) {
+            document.getElementById("vibracionLocal").innerHTML = "📳 ¡VIBRACIÓN SUAVE!";
+            document.getElementById("vibracionRemoto").innerHTML = "📳 ¡VIBRACIÓN SUAVE!";
+            document.getElementById("sincroniaMsg").innerHTML = "💚 ¡SINCRONÍA! Los colores coinciden. 💚";
+            document.getElementById("sincroniaMsg").style.background = "#2e6b4a";
+        } else {
+            document.getElementById("vibracionLocal").innerHTML = "";
+            document.getElementById("vibracionRemoto").innerHTML = "";
+            document.getElementById("sincroniaMsg").innerHTML = "⚪ Esperando sincronía...";
+            document.getElementById("sincroniaMsg").style.background = "#2e4a3e";
+        }
+    }
+
+    function cambiarColor() {
+        let nuevo = prompt("Escribe el color (verde_suave / azul_claro / naranja_tenue):", miColor);
+        if (nuevo === "verde_suave" || nuevo === "azul_claro" || nuevo === "naranja_tenue") {
+            miColor = nuevo;
+            actualizarInterfaz();
+            // Enviar mi color a las otras pestañas
+            channel.postMessage({ tipo: "color", color: miColor });
+        } else {
+            alert("Color no válido. Usa: verde_suave, azul_claro o naranja_tenue");
+        }
+    }
+
+    // Escuchar mensajes de otras pestañas
+    channel.onmessage = (event) => {
+        const data = event.data;
+        if (data.tipo === "color") {
+            colorRemoto = data.color;
+            actualizarInterfaz();
+        }
+    };
+
+    // Al cargar, avisar a los demás mi color actual
+    window.onload = () => {
+        channel.postMessage({ tipo: "color", color: miColor });
+        actualizarInterfaz();
+    };
+
+    actualizarInterfaz();
+</script>
+</body>
+</html>
