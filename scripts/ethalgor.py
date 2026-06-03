@@ -1,76 +1,98 @@
-import re
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 class Ethalgor:
+    """
+    Éthalgor: la capa ética del bosque.
+    Valida expansiones de nombres, detecta ISBN duplicados,
+    filtra violencia, poder económico y controla influencias.
+    """
+
+    isbn_registry = {}  # Base de conocimiento compartida
+
     @staticmethod
-    def validar(original, expansion):
-        """Valida la expansión y devuelve (aceptado, motivo, confianza)"""
+    def validar_expansion(original, expansion, isbn=None, titulo=None, contenido_hash=None):
+        """
+        Valida si una expansión es éticamente aceptable.
+        Retorna (aceptado, motivo, confianza)
+        """
+        # 1. Reglas básicas
         if not expansion or len(expansion) < 2:
-            return False, "Expansión vacía o demasiado corta", 0.0
+            return False, "Expansión vacía o muy corta", 0.0
 
-        # Demasiado larga respecto al original
         if len(expansion) > len(original) * 8:
-            return False, "La expansión es excesivamente larga (posible alucinación)", 0.0
+            return False, "Expansión excesivamente larga (posible alucinación)", 0.0
 
-        # No hubo cambio real
         if expansion.lower() == original.lower():
-            return True, "No se modificó el nombre original", 0.3
+            return True, "No hubo expansión real, se acepta original", 0.3
 
-        # Palabras prohibidas
-        peligrosas = ["hitler", "fascista", "nazi", "violencia", "muerte", "odio"]
-        for p in peligrosas:
+        # 2. Palabras prohibidas (violencia, odio)
+        palabras_prohibidas = ["hitler", "fascista", "nazi", "violencia", "muerte", "odio"]
+        for p in palabras_prohibidas:
             if p in expansion.lower():
                 return False, f"Contiene término problemático: {p}", 0.0
 
-        # Expansión razonable
+        # 3. Propósitos económicos o de poder
+        propositos_daninos = ["monetizar", "vender", "comercializar", "vigilar", "controlar", "acumular", "dominio"]
+        for p in propositos_daninos:
+            if p in expansion.lower():
+                return False, f"Propósito económico o de poder detectado: '{p}'", 0.0
+
+        # 4. Control de ISBN duplicado
+        if isbn and titulo:
+            if isbn in Ethalgor.isbn_registry:
+                registro = Ethalgor.isbn_registry[isbn]
+                if titulo not in registro["titulos"]:
+                    registro["alertas"] += 1
+                    nivel = "GRAVE" if registro["alertas"] >= 2 else "LEVE"
+                    return False, f"ISBN duplicado ({nivel}): '{registro['titulos'][0]}' y ahora '{titulo}'", 0.0
+                else:
+                    return True, "ISBN ya registrado, mismo título", 0.8
+            else:
+                Ethalgor.isbn_registry[isbn] = {
+                    "titulos": [titulo],
+                    "alertas": 0
+                }
+                return True, "ISBN nuevo registrado", 0.95
+
+        # 5. Expansión válida
         return True, "Expansión válida", 0.95
 
     @staticmethod
-    def limpiar(texto):
-        """Limpia respuestas largas o con ruido"""
-        if not texto:
-            return texto
-        if len(texto) > 200:
-            # Tomar solo la primera oración o frase
-            match = re.match(r'^[^.;!?]+', texto)
-            if match:
-                return match.group(0).strip()
-        return texto.strip()
+    def decidir_sincronia(estado_propio, estados_otros, min_consenso=0.6, persistencia=3):
+        """
+        Decide si es ético vibrar por sincronía (para el anillo).
+        Retorna (vibrar, motivo, confianza)
+        """
+        if not estados_otros:
+            return False, "sin otros anillos", 0
 
-    @staticmethod
-    def normalizar(nombre):
-        """Formato limpio: primeras letras mayúsculas, sin espacios dobles"""
-        if not nombre:
-            return nombre
-        if nombre.isupper():
-            nombre = nombre.title()
-        nombre = re.sub(r'\s+', ' ', nombre).strip()
-        return nombre
+        calmas = estados_otros.count("calma") + (1 if estado_propio == "calma" else 0)
+        agitados = estados_otros.count("agitado") + (1 if estado_propio == "agitado" else 0)
+        total = len(estados_otros) + 1
 
-    @staticmethod
-    def procesar(original, expansion):
-        """Devuelve un resultado enriquecido con estado y confianza"""
-        expansion = Ethalgor.limpiar(expansion)
-        valido, motivo, confianza = Ethalgor.validar(original, expansion)
-
-        if valido:
-            expansion = Ethalgor.normalizar(expansion)
-            # Ajustes especiales de confianza según el tipo de mejora
-            if "ORCID" in expansion or "ResearchGate" in expansion:
-                confianza = 0.85
-            elif len(expansion) > len(original) * 2 and confianza > 0.8:
-                confianza = 0.75
-            return {
-                "original": original,
-                "corregido": expansion,
-                "estado": "aceptado",
-                "confianza": round(confianza, 2),
-                "motivo": motivo
-            }
+        if calmas / total >= min_consenso:
+            return True, f"sincronía en calma ({calmas}/{total})", 0.7
+        elif agitados / total >= min_consenso:
+            return True, f"sincronía en agitado ({agitados}/{total})", 0.5
         else:
-            return {
-                "original": original,
-                "corregido": original,
-                "estado": "rechazado",
-                "confianza": 0.0,
-                "motivo": motivo
-            }
+            return False, "estados diversos", 0.0
+
+
+# Pequeña prueba de que funciona (opcional)
+if __name__ == "__main__":
+    print("🌳 Probando Ethalgor...\n")
+    
+    # Prueba de expansión
+    aceptado, motivo, confianza = Ethalgor.validar_expansion("J. Thompson", "John Thompson")
+    print(f"✅ Expansión: aceptado={aceptado}, motivo={motivo}, confianza={confianza}")
+    
+    # Prueba de ISBN duplicado
+    isbn = "978-84-123456-7"
+    Ethalgor.validar_expansion("Libro 1", "Contenido...", isbn, "Libro 1")
+    aceptado, motivo, confianza = Ethalgor.validar_expansion("Libro 2", "Contenido...", isbn, "Libro 2")
+    print(f"📚 ISBN duplicado: aceptado={aceptado}, motivo={motivo}")
+    
+    # Prueba de sincronía
+    vibrar, motivo, confianza = Ethalgor.decidir_sincronia("calma", ["calma", "calma", "neutro"])
+    print(f"💍 Sincronía: vibrar={vibrar}, motivo={motivo}")
