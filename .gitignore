@@ -1,14 +1,1 @@
-
-# Simulaciones y pruebas locales
-simulaciones/
-logs/
-*.log
-*.csv
-*.png
-__pycache__/
-*.pyc
-.DS_Store
-
-# Archivos temporales
-*.tmp
-*.bak
+pruebas_locales/
