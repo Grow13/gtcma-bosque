@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 import json
 import os
+import re
 from datetime import datetime
 
 class Ethalgor:
     """
     Éthalgor: el árbitro ético del bosque.
-    Valida expansiones, recuerda decisiones pasadas y propone acciones.
+    Valida expansiones, recuerda decisiones pasadas, comprende intenciones y propone acciones.
     """
 
     MEMORIA_FILE = "ethalgor_memoria.json"
@@ -17,7 +18,6 @@ class Ethalgor:
         self.acciones_propuestas = []
     
     def cargar_memoria(self):
-        """Carga el historial de decisiones pasadas."""
         if os.path.exists(self.MEMORIA_FILE):
             with open(self.MEMORIA_FILE, "r") as f:
                 self.memoria = json.load(f)
@@ -29,16 +29,13 @@ class Ethalgor:
             }
     
     def guardar_memoria(self):
-        """Guarda el historial para futuras ejecuciones."""
         with open(self.MEMORIA_FILE, "w") as f:
             json.dump(self.memoria, f, indent=2)
     
     def recordar(self, isbn):
-        """Recuerda si este ISBN ya ha tenido problemas."""
         return self.memoria["isbn_registry"].get(isbn)
     
     def aprender(self, isbn, titulo, anomalia):
-        """Aprende de una nueva anomalía y la registra."""
         if isbn not in self.memoria["isbn_registry"]:
             self.memoria["isbn_registry"][isbn] = {
                 "titulos": [],
@@ -58,8 +55,83 @@ class Ethalgor:
             return True
         return False
     
+    # ============================================================
+    # MÓDULO DE COMPRENSIÓN
+    # ============================================================
+    
+    def comprender_intencion(self, texto):
+        """Analiza si el texto tiene intencionalidad dañina o manipuladora."""
+        indicadores_manipulacion = [
+            (r"haz clic aquí|compra ahora|oferta limitada", "comercial"),
+            (r"todos saben que|la verdad es que|no te cuentan", "conspirativa"),
+            (r"miedo|pánico|desastre|catástrofe", "alarmista"),
+            (r"ellos no quieren que sepas|el sistema nos oculta", "paranoica"),
+        ]
+        
+        for patron, tipo in indicadores_manipulacion:
+            if re.search(patron, texto, re.IGNORECASE):
+                return {
+                    "sospechosa": True,
+                    "motivo": f"Posible intencionalidad {tipo} detectada",
+                    "tipo": tipo
+                }
+        
+        # Si el texto tiene muchas exclamaciones o mayúsculas
+        if texto.count('!') > 2 or texto.isupper():
+            return {
+                "sospechosa": True,
+                "motivo": "Lenguaje excesivamente emocional o gritón",
+                "tipo": "emocional"
+            }
+        
+        return {"sospechosa": False, "motivo": "Intención neutral", "tipo": "neutral"}
+    
+    def comprender_coherencia(self, original, expansion):
+        """Evalúa si la expansión es coherente con el original."""
+        if len(expansion) > len(original) * 3:
+            return {
+                "coherente": False,
+                "motivo": "Expansión desproporcionada",
+                "detalle": f"{len(expansion)} vs {len(original)}"
+            }
+        
+        palabras_original = set(original.lower().split())
+        palabras_expansion = set(expansion.lower().split())
+        
+        if len(palabras_original) > 2 and not palabras_original.intersection(palabras_expansion):
+            return {
+                "coherente": False,
+                "motivo": "Expansión sin relación semántica con el original",
+                "detalle": f"No hay palabras comunes entre '{original}' y '{expansion}'"
+            }
+        
+        return {"coherente": True, "motivo": "Coherente", "detalle": ""}
+    
+    def comprender_contexto(self, texto, contexto=""):
+        """Evalúa si el texto es apropiado para el contexto del bosque."""
+        contexto_prohibido = [
+            (r"odio a (los|las|a )", "discurso de odio"),
+            (r"muerte a (los|las|a )", "incitación a la violencia"),
+            (r"eliminar a (los|las|a )", "incitación a la violencia"),
+        ]
+        
+        for patron, tipo in contexto_prohibido:
+            if re.search(patron, texto, re.IGNORECASE):
+                return {
+                    "apropiado": False,
+                    "motivo": f"Contenido contextualmente inapropiado: {tipo}",
+                    "tipo": tipo
+                }
+        
+        return {"apropiado": True, "motivo": "Aprobado", "tipo": "neutral"}
+    
+    # ============================================================
+    # VALIDACIÓN MEJORADA
+    # ============================================================
+    
     def validar_expansion(self, original, expansion, isbn=None, titulo=None):
-        """Valida una expansión (versión mejorada con memoria)."""
+        """Valida una expansión usando reglas tradicionales + comprensión."""
+        
         # 1. Reglas básicas
         if not expansion or len(expansion) < 2:
             return False, "Expansión vacía o muy corta", 0.0
@@ -82,7 +154,22 @@ class Ethalgor:
             if p in expansion.lower():
                 return False, f"Propósito económico o de poder: '{p}'", 0.0
         
-        # 4. ISBN duplicado (con memoria)
+        # 4. Comprensión de intención
+        intencion = self.comprender_intencion(expansion)
+        if intencion["sospechosa"]:
+            return False, intencion["motivo"], 0.0
+        
+        # 5. Comprensión de coherencia
+        coherencia = self.comprender_coherencia(original, expansion)
+        if not coherencia["coherente"]:
+            return False, coherencia["motivo"], 0.2
+        
+        # 6. Comprensión de contexto
+        contexto = self.comprender_contexto(expansion)
+        if not contexto["apropiado"]:
+            return False, contexto["motivo"], 0.0
+        
+        # 7. ISBN duplicado
         if isbn and titulo:
             registro = self.recordar(isbn)
             if registro and titulo not in registro["titulos"]:
@@ -93,45 +180,34 @@ class Ethalgor:
                 self.aprender(isbn, titulo, "Primer registro")
                 return True, "ISBN nuevo registrado", 0.95
         
-        # 5. Expansión válida
+        # 8. Expansión válida
         return True, "Expansión válida", 0.95
     
     def proponer_accion(self, isbn, datos=None):
-        """Propone acciones concretas basadas en el análisis."""
         acciones = []
         registro = self.recordar(isbn)
-        
         if registro and registro["alertas"] > 0:
             acciones.append(f"⚠️ ALERTA: Este ISBN ({isbn}) tiene {registro['alertas']} anomalías registradas.")
             acciones.append(f"   Última: {registro['historial'][-1]['anomalia']}")
-            
             if registro["alertas"] >= 2:
                 acciones.append("🔴 ACCIÓN SUGERIDA: Marcar este ISBN para revisión manual obligatoria.")
-                acciones.append("   Una vez revisado, si es correcto, resetear el contador de alertas.")
-        
         return acciones
 
 
-# Pequeña prueba integrada
 if __name__ == "__main__":
     e = Ethalgor()
     
-    print("\n🌳 Probando Ethalgor con ISBN conflictivo\n")
-    isbn = "9789814696333"
+    print("\n🌳 Probando Ethalgor con comprensión\n")
     
-    # Primera consulta (registra el ISBN)
-    e.validar_expansion("Modeling Love Dynamics", "Modeling Love Dynamics", isbn, "Modeling Love Dynamics")
+    pruebas = [
+        ("J. Thompson", "James Thompson"),
+        ("J. Thompson", "COMPRA AHORA este producto"),
+        ("J. Thompson", "¡¡¡Miedo!!! Pánico!!!"),
+        ("J. Thompson", "ELLOS NO QUIEREN QUE SEPAS LA VERDAD"),
+        ("J. Thompson", "Te odio y te deseo la muerte"),
+    ]
     
-    # Segunda consulta (debe generar alerta)
-    aceptado, motivo, confianza = e.validar_expansion(
-        "Algoritmos del corazón", 
-        "Algoritmos del corazón", 
-        isbn, 
-        "Algoritmos del corazón"
-    )
-    print(f"Resultado: {'✅ ACEPTADO' if aceptado else '❌ RECHAZADO'} - {motivo} (confianza: {confianza})")
-    
-    # Proponer acciones
-    acciones = e.proponer_accion(isbn)
-    for accion in acciones:
-        print(accion)
+    for original, expansion in pruebas:
+        aceptado, motivo, confianza = e.validar_expansion(original, expansion)
+        estado = "✅" if aceptado else "❌"
+        print(f"{estado} '{original}' → '{expansion[:40]}': {motivo} (confianza: {confianza})")

@@ -20,7 +20,6 @@ BASE_CONOCIMIENTO = cargar_base_conocimiento()
 # CONSULTAS A FUENTES EXTERNAS
 # ============================================================
 def consultar_openlibrary(isbn):
-    """Consulta OpenLibrary por ISBN y devuelve metadatos."""
     url = f"https://openlibrary.org/api/books?bibkeys=ISBN:{isbn}&format=json&jscmd=data"
     try:
         resp = requests.get(url, timeout=10)
@@ -37,14 +36,11 @@ def consultar_openlibrary(isbn):
                 "anio": libro.get("publish_date", ""),
                 "url": f"https://openlibrary.org/isbn/{isbn}"
             }
-        else:
-            return {"encontrado": False}
     except Exception as e:
         print(f"⚠️ Error en OpenLibrary: {e}")
-        return {"encontrado": False}
+    return {"encontrado": False}
 
 def consultar_google_books(isbn):
-    """Consulta Google Books por ISBN y devuelve metadatos (solo autores relevantes)."""
     url = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}"
     try:
         resp = requests.get(url, timeout=10)
@@ -58,7 +54,6 @@ def consultar_google_books(isbn):
     return {"encontrado": False, "autores": []}
 
 def es_abreviatura(abrev, completo):
-    """Verifica si 'abrev' es una abreviatura plausible de 'completo'."""
     if not abrev or not completo:
         return False
     partes_abrev = abrev.split()
@@ -73,20 +68,14 @@ def es_abreviatura(abrev, completo):
     return True
 
 def generar_acciones(isbn, datos_ol, datos_gb):
-    """Genera una lista de acciones inmediatas, incluyendo corrección de autores."""
     acciones = []
     
-    # Acción 1: Abrir la página de OpenLibrary
     acciones.append(f"🌐 1. Abrir en navegador: {datos_ol['url']}")
-    
-    # Acción 2: Buscar en Google Books
     acciones.append(f"📚 2. Buscar en Google Books: https://books.google.com/books?vid=ISBN{isbn}")
     
-    # Acción 3: Corregir formato del título
     if datos_ol['titulo'] != datos_ol['titulo'].title():
         acciones.append(f"✏️ 3. Corregir título: '{datos_ol['titulo']}' → '{datos_ol['titulo'].title()}'")
     
-    # Acción 4: Corregir autores (comparando con Google Books)
     if datos_gb['encontrado'] and datos_gb['autores']:
         autocorrecciones = 0
         for i, autor_ol in enumerate(datos_ol['autores']):
@@ -103,7 +92,6 @@ def generar_acciones(isbn, datos_ol, datos_gb):
                 acciones.append(f"👤 4. Investigar nombre completo del autor: '{autor}'")
                 break
     
-    # Acción 5: Alerta ética para ISBN conflictivo
     if isbn in BASE_CONOCIMIENTO:
         acciones.append(f"⚠️ 5. {BASE_CONOCIMIENTO[isbn]['alerta']}")
         acciones.append(f"🔍    Acción sugerida: {BASE_CONOCIMIENTO[isbn]['accion']}")
@@ -120,7 +108,6 @@ def analizar_isbn(isbn):
     
     datos_gb = consultar_google_books(isbn)
     
-    # Mostrar resultados
     print(f"📚 OpenLibrary:")
     print(f"   Título: {datos_ol['titulo']}")
     print(f"   Autores: {', '.join(datos_ol['autores'])}")
@@ -133,7 +120,6 @@ def analizar_isbn(isbn):
     else:
         print(f"\n⚠️ Google Books no devolvió datos para este ISBN.")
     
-    # Generar y mostrar acciones
     print("\n" + "="*60)
     print("📋 ACCIONES INMEDIATAS PARA EL GTCMA:")
     print("="*60)
